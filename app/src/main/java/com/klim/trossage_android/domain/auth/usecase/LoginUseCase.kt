@@ -1,6 +1,5 @@
 package com.klim.trossage_android.domain.auth.usecase
 
-import androidx.compose.foundation.interaction.HoverInteraction
 import com.klim.trossage_android.core.util.Result
 import com.klim.trossage_android.domain.auth.model.AuthToken
 import com.klim.trossage_android.domain.auth.model.UserCredentials
