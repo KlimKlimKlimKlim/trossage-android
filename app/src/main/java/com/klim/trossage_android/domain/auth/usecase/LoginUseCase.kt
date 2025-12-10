@@ -29,7 +29,7 @@ class LoginUseCase (
 
         return when {
             message.contains("401") || message.contains("unauthorized") ->
-                "Your ogin or password is wrong"
+                "Your login or password is wrong"
             message.contains("403") || message.contains("forbidden") ->
                 "Access denied, contact our support"
             message.contains("500") || message.contains("503") ->
