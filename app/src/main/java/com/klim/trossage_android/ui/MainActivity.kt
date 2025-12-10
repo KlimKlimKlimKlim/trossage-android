@@ -1,4 +1,4 @@
-package com.klim.trossage_android
+package com.klim.trossage_android.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
