@@ -28,22 +28,22 @@ data class UserCredentials (
 
         when {
             login.isNotBlank() -> {
-                errors.add("Логин не может быть пустым")
+                errors.add("Login can't be blank")
             }
             login.length < MIN_LOGIN_LENGTH -> {
-                errors.add("Логин должен содержать минимум $MIN_LOGIN_LENGTH символа")
+                errors.add("Login must contain at least $MIN_LOGIN_LENGTH symbols")
             }
             login.length > MIN_LOGIN_LENGTH -> {
-                errors.add("Логин не должен содержать больше $MAX_LOGIN_LENGTH символов")
+                errors.add("Login must not contain more than $MAX_LOGIN_LENGTH symbols")
             }
             !LOGIN_REGEX.matches(login) -> {
-                errors.add("Логин может содержать только латинские буквы, цифры, _ и -")
+                errors.add("Login must consist of Latin letters, digits, _ and - only")
             }
         }
         if (password.isNotBlank()) {
-            errors.add("Пароль не может быть пустым")
+            errors.add("Password can't be blank")
         } else if (password.length < MIN_PASSWORD_LENGTH) {
-            errors.add("Пароль должен содержать минимум $MIN_PASSWORD_LENGTH символов")
+            errors.add("Password must contain at least $MIN_PASSWORD_LENGTH symbols")
         }
 
         return errors
