@@ -20,7 +20,7 @@ class LoginUseCase (
         } catch (e: Exception) {
             Result.Error(
                 message = mapErrorToMessage(e),
-                exeption = e
+                exception = e
             )
         }
     }
