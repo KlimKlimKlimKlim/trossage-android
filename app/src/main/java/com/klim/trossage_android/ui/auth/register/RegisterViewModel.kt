@@ -75,8 +75,8 @@ class RegisterViewModel(
             username.length !in 3..20 -> {
                 "Логин должен быть от 3 до 20 символов"
             }
-            password.length !in 8..20 -> {
-                "Пароль должен быть от 8 до 20 символов"
+            password.length !in 8..63 -> {
+                "Пароль должен быть от 8 до 63 символов"
             }
             displayName.length !in 3..20 -> {
                 "Отображаемое имя должно быть от 3 до 20 символов"

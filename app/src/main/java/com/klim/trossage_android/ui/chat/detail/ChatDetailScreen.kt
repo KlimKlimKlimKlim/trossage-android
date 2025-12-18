@@ -1,11 +1,9 @@
 package com.klim.trossage_android.ui.chat.detail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -13,103 +11,94 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.klim.trossage_android.domain.model.Message
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailScreen(
     viewModel: ChatDetailViewModel,
-    companionDisplayName: String,
-    onBackClick: () -> Unit
+    onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(companionDisplayName) },
+                title = { Text(uiState.companionName) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 }
             )
         },
         bottomBar = {
-            MessageInputBar(
-                text = uiState.currentInput,
-                onTextChange = { viewModel.onInputChanged(it) },
-                onSend = { viewModel.sendMessage() },
-                isSending = uiState.isSendingMessage
+            MessageInput(
+                text = uiState.messageText,
+                onTextChanged = viewModel::onMessageTextChanged,
+                onSendClick = viewModel::sendMessage,
+                enabled = !uiState.isSending
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                // Индикатор загрузки старых сообщений
-                if (uiState.isLoadingMessages) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (uiState.isLoading && uiState.messages.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    reverseLayout = true
+                ) {
+                    items(uiState.messages.reversed()) { message ->
+                        MessageItem(message = message)
+                    }
+
+                    if (uiState.companionIsTyping) {
+                        item {
+                            Text(
+                                text = "${uiState.companionName} печатает...",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                    if (uiState.hasMore && !uiState.isLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Button(onClick = { viewModel.loadMoreMessages() }) {
+                                    Text("Загрузить ещё")
+                                }
+                            }
                         }
                     }
                 }
-
-                items(uiState.messages, key = { it.messageId }) { message ->
-                    MessageItem(
-                        message = message,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-
-                if (uiState.companionTypingText.isNotEmpty()) {
-                    item {
-                        TypingMessageItem(
-                            text = uiState.companionTypingText,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
             }
 
-            LaunchedEffect(listState) {
-                snapshotFlow {
-                    listState.firstVisibleItemIndex == 0 &&
-                            listState.firstVisibleItemScrollOffset < 100
-                }.collect { isAtTop ->
-                    if (isAtTop && !uiState.isLoadingMessages && uiState.hasMoreMessages) {
-                        viewModel.loadMessages()
-                    }
-                }
-            }
-
-            if (uiState.error != null) {
+            uiState.error?.let { error ->
                 Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Text(uiState.error!!)
+                    Text(error)
                 }
             }
         }
@@ -117,16 +106,45 @@ fun ChatDetailScreen(
 }
 
 @Composable
-fun MessageItem(
-    message: Message,
-    modifier: Modifier = Modifier
+fun MessageInput(
+    text: String,
+    onTextChanged: (String) -> Unit,
+    onSendClick: () -> Unit,
+    enabled: Boolean
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = onTextChanged,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Сообщение") },
+            enabled = enabled
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        IconButton(
+            onClick = onSendClick,
+            enabled = enabled && text.isNotBlank()
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить")
+        }
+    }
+}
+
+@Composable
+fun MessageItem(message: Message) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             color = if (message.isMine) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {
@@ -134,95 +152,26 @@ fun MessageItem(
             },
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+                if (!message.isMine) {
+                    Text(
+                        text = message.senderDisplayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Text(
                     text = message.text,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = formatTimestamp(message.timestamp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = message.timestamp.toString(), // ← добавлен .toString()
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
-}
-
-@Composable
-fun TypingMessageItem(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = "печатает...",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun MessageInputBar(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onSend: () -> Unit,
-    isSending: Boolean
-) {
-    Surface(
-        tonalElevation = 3.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                placeholder = { Text("Сообщение") },
-                modifier = Modifier.weight(1f),
-                enabled = !isSending,
-                maxLines = 4
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = onSend,
-                enabled = text.isNotBlank() && !isSending
-            ) {
-                if (isSending) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                } else {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить")
-                }
-            }
-        }
-    }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
 }

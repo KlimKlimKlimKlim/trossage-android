@@ -2,8 +2,8 @@ package com.klim.trossage_android.data.repository
 
 import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.remote.api.ChatApiService
-import com.klim.trossage_android.data.remote.dto.LoginRequest
-import com.klim.trossage_android.data.remote.dto.RegisterRequest
+import com.klim.trossage_android.data.remote.dto.LoginUserRequest
+import com.klim.trossage_android.data.remote.dto.RegisterUserRequest
 import com.klim.trossage_android.domain.model.User
 import com.klim.trossage_android.domain.repository.AuthRepository
 
@@ -14,29 +14,16 @@ class AuthRepositoryImpl(
 
     override suspend fun login(username: String, password: String): Result<User> {
         return try {
-            val response = api.login(LoginRequest(username, password))
-
-            if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error))
+            val resp = api.login(LoginUserRequest(login = username, password = password))
+            if (!resp.isSuccess || resp.data == null) {
+                return Result.failure(Exception(resp.error))
             }
 
-            val data = response.data
+            val data = resp.data
+            authPrefs.saveTokens(data.token.accessToken, data.token.refreshToken)
+            authPrefs.saveUser(data.user.id, data.user.login, data.user.displayName)
 
-            authPrefs.saveAuthData(
-                accessToken = data.token.accessToken,
-                refreshToken = data.token.refreshToken,
-                userId = data.user.id,
-                login = data.user.login,
-                displayName = data.user.displayName
-            )
-
-            val user = User(
-                userId = data.user.id.toString(),
-                username = data.user.login,
-                displayName = data.user.displayName
-            )
-
-            Result.success(user)
+            Result.success(User(data.user.id.toString(), data.user.login, data.user.displayName))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -44,29 +31,16 @@ class AuthRepositoryImpl(
 
     override suspend fun register(username: String, password: String, displayName: String): Result<User> {
         return try {
-            val response = api.register(RegisterRequest(username, password, displayName))
-
-            if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error))
+            val resp = api.register(RegisterUserRequest(login = username, password = password, displayName = displayName))
+            if (!resp.isSuccess || resp.data == null) {
+                return Result.failure(Exception(resp.error))
             }
 
-            val data = response.data
+            val data = resp.data
+            authPrefs.saveTokens(data.token.accessToken, data.token.refreshToken)
+            authPrefs.saveUser(data.user.id, data.user.login, data.user.displayName)
 
-            authPrefs.saveAuthData(
-                accessToken = data.token.accessToken,
-                refreshToken = data.token.refreshToken,
-                userId = data.user.id,
-                login = data.user.login,
-                displayName = data.user.displayName
-            )
-
-            val user = User(
-                userId = data.user.id.toString(),
-                username = data.user.login,
-                displayName = data.user.displayName
-            )
-
-            Result.success(user)
+            Result.success(User(data.user.id.toString(), data.user.login, data.user.displayName))
         } catch (e: Exception) {
             Result.failure(e)
         }

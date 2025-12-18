@@ -2,7 +2,7 @@ package com.klim.trossage_android.data.mapper
 
 import com.klim.trossage_android.data.remote.dto.ChatDto
 import com.klim.trossage_android.data.remote.dto.MessageDto
-import com.klim.trossage_android.data.remote.dto.UserDto
+import com.klim.trossage_android.data.remote.dto.UserResponse
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.Message
 import com.klim.trossage_android.domain.model.User
@@ -32,10 +32,10 @@ object ChatMapper {
         )
     }
 
-    fun toUser(dto: UserDto): User {
+    fun toUser(dto: UserResponse): User {
         return User(
-            userId = dto.id.toString(),        // ← Int → String
-            username = dto.login,               // ← login → username
+            userId = dto.id.toString(),
+            username = dto.login,
             displayName = dto.displayName
         )
     }

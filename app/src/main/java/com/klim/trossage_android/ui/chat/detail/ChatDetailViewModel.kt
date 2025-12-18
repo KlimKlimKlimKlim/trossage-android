@@ -9,122 +9,124 @@ import kotlinx.coroutines.launch
 
 class ChatDetailViewModel(
     private val chatId: String,
+    private val companionName: String,
     private val messageRepository: MessageRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ChatDetailUiState())
+    private val _uiState = MutableStateFlow(ChatDetailUiState(companionName = companionName))
     val uiState: StateFlow<ChatDetailUiState> = _uiState.asStateFlow()
 
     private var currentOffset = 0
+    private val pageSize = 50
 
     init {
         loadMessages()
-        observeRealtimeUpdates()
+        // TODO: когда будет WebSocket - раскомментировать
+        // observeRealtimeUpdates()
     }
 
-    fun loadMessages() {
-        if (_uiState.value.isLoadingMessages) return
+    private fun loadMessages() {
+        if (_uiState.value.isLoading) return
 
-        _uiState.value = _uiState.value.copy(isLoadingMessages = true)
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
         viewModelScope.launch {
-            messageRepository.getMessages(chatId, currentOffset, limit = 10)
+            messageRepository.loadMessages(chatId, currentOffset, pageSize)
                 .onSuccess { newMessages ->
+                    val currentMessages = _uiState.value.messages
                     _uiState.value = _uiState.value.copy(
-                        messages = newMessages + _uiState.value.messages,
-                        isLoadingMessages = false,
-                        hasMoreMessages = newMessages.size == 10
+                        messages = newMessages + currentMessages,
+                        isLoading = false,
+                        hasMore = newMessages.size == pageSize
                     )
                     currentOffset += newMessages.size
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
-                        isLoadingMessages = false,
-                        error = error.message
+                        isLoading = false,
+                        error = error.message ?: "Ошибка загрузки сообщений"
                     )
                 }
         }
     }
 
-    fun refreshMessages() {
-        viewModelScope.launch {
-            messageRepository.getMessages(chatId, offset = 0, limit = 10)
-                .onSuccess { latestMessages ->
-                    val existingIds = _uiState.value.messages.map { it.messageId }.toSet()
-                    val newMessages = latestMessages.filter { it.messageId !in existingIds }
-
-                    _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + newMessages
-                    )
-                }
-        }
+    fun loadMoreMessages() {
+        loadMessages()
     }
 
-    fun onInputChanged(text: String) {
-        _uiState.value = _uiState.value.copy(currentInput = text)
+    fun onMessageTextChanged(text: String) {
+        _uiState.value = _uiState.value.copy(messageText = text)
 
-        messageRepository.sendTypingUpdate(chatId, text)
+        // TODO: когда будет WebSocket - раскомментировать
+        // if (text.isNotEmpty()) {
+        //     messageRepository.sendTypingUpdate(chatId, true)
+        // }
     }
 
     fun sendMessage() {
-        val text = _uiState.value.currentInput.trim()
-        if (text.isBlank()) return
+        val text = _uiState.value.messageText.trim()
+        if (text.isEmpty()) return
 
-        _uiState.value = _uiState.value.copy(isSendingMessage = true)
+        _uiState.value = _uiState.value.copy(isSending = true, error = null)
 
         viewModelScope.launch {
             messageRepository.sendMessage(chatId, text)
                 .onSuccess { message ->
+                    val updatedMessages = _uiState.value.messages + message
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + message,
-                        currentInput = "",
-                        isSendingMessage = false
+                        messages = updatedMessages,
+                        messageText = "",
+                        isSending = false
                     )
-
-                    messageRepository.sendTypingUpdate(chatId, "")
+                    // TODO: когда будет WebSocket
+                    // messageRepository.sendTypingUpdate(chatId, false)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
-                        isSendingMessage = false,
-                        error = error.message
+                        isSending = false,
+                        error = error.message ?: "Ошибка отправки сообщения"
                     )
                 }
         }
     }
 
     private fun observeRealtimeUpdates() {
-        messageRepository.connectWebSockets(chatId)
-
-        viewModelScope.launch {
-            messageRepository.observeNewMessages(chatId).collect { message ->
-                val existingIds = _uiState.value.messages.map { it.messageId }.toSet()
-                if (message.messageId !in existingIds) {
-                    _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + message
-                    )
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            messageRepository.observeTyping(chatId).collect { typingText ->
-                _uiState.value = _uiState.value.copy(companionTypingText = typingText)
-            }
-        }
+        // TODO: когда будет WebSocket - раскомментировать
+        // viewModelScope.launch {
+        //     messageRepository.connectWebSockets(chatId)
+        //
+        //     launch {
+        //         messageRepository.observeNewMessages(chatId).collect { message ->
+        //             if (message.chatId == chatId &&
+        //                 _uiState.value.messages.none { it.messageId == message.messageId }) {
+        //                 val updatedMessages = _uiState.value.messages + message
+        //                 _uiState.value = _uiState.value.copy(messages = updatedMessages)
+        //             }
+        //         }
+        //     }
+        //
+        //     launch {
+        //         messageRepository.observeTyping(chatId).collect { isTyping ->
+        //             _uiState.value = _uiState.value.copy(companionIsTyping = isTyping)
+        //         }
+        //     }
+        // }
     }
 
     override fun onCleared() {
         super.onCleared()
-        messageRepository.disconnectWebSockets()
+        // TODO: когда будет WebSocket
+        // messageRepository.disconnectWebSockets()
     }
 }
 
 data class ChatDetailUiState(
+    val companionName: String,
     val messages: List<Message> = emptyList(),
-    val currentInput: String = "",
-    val companionTypingText: String = "",
-    val isLoadingMessages: Boolean = false,
-    val isSendingMessage: Boolean = false,
-    val hasMoreMessages: Boolean = true,
+    val messageText: String = "",
+    val isLoading: Boolean = false,
+    val isSending: Boolean = false,
+    val hasMore: Boolean = true,
+    val companionIsTyping: Boolean = false,
     val error: String? = null
 )

@@ -5,21 +5,14 @@ import com.klim.trossage_android.domain.model.User
 import com.klim.trossage_android.domain.model.Message
 import kotlinx.coroutines.flow.Flow
 
-public interface ChatRepository {
+interface ChatRepository {
+    fun getChatsFlow(): Flow<List<Chat>>
 
-    suspend fun getChats(offset: Int, limit: Int = 10): Result<List<Chat>>
+    suspend fun loadChats(offset: Int, limit: Int): Result<List<Chat>>
 
     suspend fun searchUsers(query: String): Result<List<User>>
 
-    suspend fun createOrGetChat(userId: String): Result<Chat>
+    suspend fun createChat(companionUserId: String): Result<Chat>
 
     suspend fun deleteChat(chatId: String): Result<Unit>
-
-    fun observeNewMessages(): Flow<Message>
-
-    fun observeChatUpdates(): Flow<Chat>
-
-    fun connectWebSocket()
-
-    fun disconnectWebSocket()
 }

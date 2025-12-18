@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -16,8 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.User
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,207 +26,254 @@ fun ChatListScreen(
     onSettingsClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
+    val searchState by viewModel.searchState.collectAsState()
 
     var showSearchDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Чаты") },
                 actions = {
-                    IconButton(onClick = { showSearchDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Новый чат")
-                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Настройки")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showSearchDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Новый чат")
+            }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(uiState.chats, key = { it.chatId }) { chat ->
-                    ChatItem(
-                        chat = chat,
-                        onClick = { onChatClick(chat) },
-                        onDelete = { viewModel.deleteChat(chat.chatId) }
-                    )
-                    Divider()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (uiState.isLoading && uiState.chats.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
+            } else if (uiState.chats.isEmpty() && !uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Нет чатов")
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(uiState.chats) { chat ->
+                        ChatListItem(
+                            chat = chat,
+                            onClick = { onChatClick(chat) }
+                        )
+                        HorizontalDivider()
+                    }
 
-                if (uiState.isLoading && uiState.chats.isNotEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
+                    if (uiState.hasMore && !uiState.isLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Button(onClick = { viewModel.loadChats() }) {
+                                    Text("Загрузить ещё")
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            LaunchedEffect(listState) {
-                snapshotFlow {
-                    listState.firstVisibleItemIndex == 0 &&
-                            listState.firstVisibleItemScrollOffset == 0
-                }.collect { isAtTop ->
-                    if (isAtTop) {
-                    }
-                }
-            }
-
-            LaunchedEffect(listState) {
-                snapshotFlow {
-                    val lastIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                    lastIndex >= uiState.chats.size - 3
-                }.collect { shouldLoad ->
-                    if (shouldLoad && !uiState.isLoading && uiState.hasMore) {
-                        viewModel.loadChats()
-                    }
-                }
-            }
-
-            if (uiState.isLoading && uiState.chats.isEmpty()) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
-
-            if (uiState.error != null) {
+            uiState.error?.let { error ->
                 Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Text(uiState.error!!)
+                    Text(error)
                 }
             }
         }
     }
 
     if (showSearchDialog) {
-        SearchUserDialog(
-            searchQuery = uiState.searchQuery,
-            searchResults = uiState.searchResults,
-            onQueryChange = { viewModel.onSearchQueryChanged(it) },
-            onUserClick = { user ->
+        AlertDialog(
+            onDismissRequest = {
                 showSearchDialog = false
-                viewModel.openChatWithUser(user.userId) { chatId ->
-                    onChatClick(chatId)
+                searchQuery = ""
+                viewModel.searchUsers("")
+            },
+            title = { Text("Найти пользователя") },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            viewModel.searchUsers(it)
+                        },
+                        label = { Text("Логин пользователя") },
+                        placeholder = { Text("Начните вводить...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (searchState.isLoading && searchState.users.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (searchState.users.isEmpty() && searchQuery.isNotBlank() && !searchState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Пользователи не найдены")
+                        }
+                    } else if (searchState.users.isNotEmpty()) {
+                        val listState = rememberLazyListState()
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            state = listState
+                        ) {
+                            itemsIndexed(searchState.users) { index, user ->
+                                UserSearchItem(
+                                    user = user,
+                                    onClick = {
+                                        showSearchDialog = false
+                                        searchQuery = ""
+                                        viewModel.searchUsers("")
+                                    }
+                                )
+
+                                if (index == searchState.users.size - 1 && searchState.hasMore) {
+                                    LaunchedEffect(Unit) {
+                                        viewModel.loadMoreSearchResults()
+                                    }
+                                }
+                            }
+
+                            if (searchState.isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Введите логин для поиска", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    searchState.error?.let { error ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             },
-            onDismiss = { showSearchDialog = false }
+            confirmButton = {
+                TextButton(onClick = {
+                    showSearchDialog = false
+                    searchQuery = ""
+                    viewModel.searchUsers("")
+                }) {
+                    Text("Закрыть")
+                }
+            }
         )
     }
 }
 
 @Composable
-fun ChatItem(
+fun UserSearchItem(
+    user: User,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(12.dp)
+    ) {
+        Text(
+            text = user.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "@${user.username}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    HorizontalDivider()
+}
+
+@Composable
+fun ChatListItem(
     chat: Chat,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = chat.companionDisplayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (!chat.isRead) FontWeight.Bold else FontWeight.Normal
+                style = MaterialTheme.typography.titleMedium
             )
-            chat.lastMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-        }
-
-        Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = formatTimestamp(chat.lastMessageTimestamp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = chat.lastMessage ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1
             )
+        }
 
-            if (!chat.isRead) {
-                Surface(
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .size(8.dp),
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primary
-                ) {}
+        if (!chat.isRead) {
+            Badge {
+                Text("●")
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SearchUserDialog(
-    searchQuery: String,
-    searchResults: List<User>,
-    onQueryChange: (String) -> Unit,
-    onUserClick: (User) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Новый чат") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onQueryChange,
-                    label = { Text("Введите логин") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn {
-                    items(searchResults) { user ->
-                        ListItem(
-                            headlineContent = { Text(user.displayName) },
-                            supportingContent = { Text(user.username) },
-                            modifier = Modifier.clickable { onUserClick(user) }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
-        }
-    )
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-
-    return when {
-        diff < 60_000 -> "Только что"
-        diff < 3600_000 -> "${diff / 60_000} мин"
-        diff < 86400_000 -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-        else -> SimpleDateFormat("dd.MM", Locale.getDefault()).format(Date(timestamp))
     }
 }

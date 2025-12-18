@@ -4,23 +4,34 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.User
-import com.klim.trossage_android.domain.model.Message
 import com.klim.trossage_android.domain.repository.ChatRepository
-import kotlinx.coroutines.flow.*
+import com.klim.trossage_android.domain.repository.UserRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ChatListViewModel(
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatListUiState())
     val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
 
+    private val _searchState = MutableStateFlow(SearchUiState())
+    val searchState: StateFlow<SearchUiState> = _searchState.asStateFlow()
+
     private var currentOffset = 0
+    private val pageSize = 20
+
+    private var searchJob: Job? = null
+    private var searchOffset = 0
+    private val searchPageSize = 20
 
     init {
-        loadChats()
-        observeRealtimeUpdates()
     }
 
     fun loadChats() {
@@ -29,57 +40,102 @@ class ChatListViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
         viewModelScope.launch {
-            chatRepository.getChats(currentOffset, limit = 10)
+            chatRepository.loadChats(currentOffset, pageSize)
                 .onSuccess { newChats ->
+                    val currentChats = _uiState.value.chats
                     _uiState.value = _uiState.value.copy(
-                        chats = _uiState.value.chats + newChats,
+                        chats = currentChats + newChats,
                         isLoading = false,
-                        hasMore = newChats.size == 10
+                        hasMore = newChats.size == pageSize
                     )
                     currentOffset += newChats.size
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message
+                        error = error.message ?: "Ошибка загрузки чатов"
                     )
                 }
         }
     }
 
-    fun refreshChats() {
+    fun refresh() {
         currentOffset = 0
         _uiState.value = _uiState.value.copy(chats = emptyList())
         loadChats()
     }
 
-    fun onSearchQueryChanged(query: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = query)
+    fun searchUsers(query: String) {
+        searchJob?.cancel()
 
         if (query.isBlank()) {
-            _uiState.value = _uiState.value.copy(searchResults = emptyList())
+            searchOffset = 0
+            _searchState.value = SearchUiState()
             return
         }
 
-        viewModelScope.launch {
-            chatRepository.searchUsers(query)
+        searchJob = viewModelScope.launch {
+            delay(300)
+
+            searchOffset = 0
+            _searchState.value = _searchState.value.copy(
+                isLoading = true,
+                query = query
+            )
+
+            userRepository.searchUsers(query, searchPageSize, searchOffset)
                 .onSuccess { users ->
-                    _uiState.value = _uiState.value.copy(searchResults = users)
+                    _searchState.value = _searchState.value.copy(
+                        users = users,
+                        isLoading = false,
+                        hasMore = users.size == searchPageSize,
+                        error = null
+                    )
+                    searchOffset += users.size
                 }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                .onFailure { error ->
+                    _searchState.value = _searchState.value.copy(
+                        isLoading = false,
+                        error = error.message ?: "Ошибка поиска"
+                    )
                 }
         }
     }
 
-    fun openChatWithUser(userId: String, onChatOpened: (Chat) -> Unit) {
+    fun loadMoreSearchResults() {
+        val currentState = _searchState.value
+        if (currentState.isLoading || !currentState.hasMore || currentState.query.isBlank()) return
+
+        _searchState.value = currentState.copy(isLoadingMore = true)
+
         viewModelScope.launch {
-            chatRepository.createOrGetChat(userId)
-                .onSuccess { chat ->
-                    onChatOpened(chat)
+            userRepository.searchUsers(currentState.query, searchPageSize, searchOffset)
+                .onSuccess { newUsers ->
+                    val updatedUsers = currentState.users + newUsers
+                    _searchState.value = _searchState.value.copy(
+                        users = updatedUsers,
+                        isLoadingMore = false,
+                        hasMore = newUsers.size == searchPageSize
+                    )
+                    searchOffset += newUsers.size
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message)
+                    _searchState.value = _searchState.value.copy(
+                        isLoadingMore = false,
+                        error = error.message ?: "Ошибка загрузки"
+                    )
+                }
+        }
+    }
+
+    fun createChat(companionUserId: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            chatRepository.createChat(companionUserId)
+                .onSuccess { chat -> onSuccess(chat.chatId) }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = error.message ?: "Ошибка создания чата"
+                    )
                 }
         }
     }
@@ -88,35 +144,22 @@ class ChatListViewModel(
         viewModelScope.launch {
             chatRepository.deleteChat(chatId)
                 .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        chats = _uiState.value.chats.filter { it.chatId != chatId }
-                    )
+                    val updatedChats = _uiState.value.chats.filter { it.chatId != chatId }
+                    _uiState.value = _uiState.value.copy(chats = updatedChats)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message)
+                    _uiState.value = _uiState.value.copy(
+                        error = error.message ?: "Ошибка удаления чата"
+                    )
                 }
         }
     }
 
     private fun observeRealtimeUpdates() {
-        chatRepository.connectWebSocket()
-
-        viewModelScope.launch {
-            chatRepository.observeNewMessages().collect { message ->
-                updateChatWithNewMessage(message)
-            }
-        }
-
-        viewModelScope.launch {
-            chatRepository.observeChatUpdates().collect { updatedChat ->
-                updateChat(updatedChat)
-            }
-        }
     }
 
-    private fun updateChatWithNewMessage(message: Message) {
+    private fun updateChatWithNewMessage(message: com.klim.trossage_android.domain.model.Message) {
         val currentChats = _uiState.value.chats.toMutableList()
-
         val chatIndex = currentChats.indexOfFirst { it.chatId == message.chatId }
 
         if (chatIndex != -1) {
@@ -127,36 +170,28 @@ class ChatListViewModel(
             )
             currentChats.removeAt(chatIndex)
             currentChats.add(0, updatedChat)
+            _uiState.value = _uiState.value.copy(chats = currentChats)
         }
-
-        _uiState.value = _uiState.value.copy(chats = currentChats)
-    }
-
-    private fun updateChat(updatedChat: Chat) {
-        val currentChats = _uiState.value.chats.toMutableList()
-        val chatIndex = currentChats.indexOfFirst { it.chatId == updatedChat.chatId }
-
-        if (chatIndex != -1) {
-            currentChats[chatIndex] = updatedChat
-            currentChats.sortByDescending { it.lastMessageTimestamp }
-        } else {
-            currentChats.add(0, updatedChat)
-        }
-
-        _uiState.value = _uiState.value.copy(chats = currentChats)
     }
 
     override fun onCleared() {
         super.onCleared()
-        chatRepository.disconnectWebSocket()
+        searchJob?.cancel()
     }
 }
 
 data class ChatListUiState(
     val chats: List<Chat> = emptyList(),
     val isLoading: Boolean = false,
-    val hasMore: Boolean = true,
     val error: String? = null,
-    val searchQuery: String = "",
-    val searchResults: List<User> = emptyList()
+    val hasMore: Boolean = true
+)
+
+data class SearchUiState(
+    val users: List<User> = emptyList(),
+    val query: String = "",
+    val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val hasMore: Boolean = false,
+    val error: String? = null
 )

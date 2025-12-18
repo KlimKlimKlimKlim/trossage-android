@@ -2,46 +2,30 @@ package com.klim.trossage_android.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
-data class ApiResponse<T>(
-    @SerializedName("is_success")
-    val isSuccess: Boolean,
-    val error: String,
-    val data: T?
-)
-
-data class LoginRequest(
+data class LoginUserRequest(
     val login: String,
     val password: String
 )
 
-data class RegisterRequest(
+data class RegisterUserRequest(
     val login: String,
     val password: String,
-    @SerializedName("display_name")
-    val displayName: String
+    @SerializedName("display_name") val displayName: String
 )
 
-data class AuthData(
-    val user: UserDto,
-    val token: TokenDto
+data class TokenResponse(
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("refresh_token") val refreshToken: String
 )
 
-data class UserDto(
+data class UserResponse(
     val id: Int,
     val login: String,
-    @SerializedName("display_name")
-    val displayName: String
+    @SerializedName("display_name") val displayName: String,
+    @SerializedName("created_at") val createdAt: String?
 )
 
-data class TokenDto(
-    @SerializedName("access_token")
-    val accessToken: String,
-    @SerializedName("refresh_token")
-    val refreshToken: String
-)
-
-// Для /refresh
-data class RefreshTokenRequest(
-    @SerializedName("refresh_token")
-    val refreshToken: String
+data class UserAndTokenResponse(
+    val user: UserResponse,
+    val token: TokenResponse
 )

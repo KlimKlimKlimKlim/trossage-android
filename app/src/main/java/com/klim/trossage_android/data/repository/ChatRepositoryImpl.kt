@@ -1,29 +1,29 @@
-// data/repository/ChatRepositoryImpl.kt
 package com.klim.trossage_android.data.repository
 
-import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.mapper.ChatMapper
 import com.klim.trossage_android.data.remote.api.ChatApiService
-import com.klim.trossage_android.data.remote.dto.CreateChatRequest
-import com.klim.trossage_android.data.remote.websocket.ChatWebSocketManager
 import com.klim.trossage_android.domain.model.Chat
-import com.klim.trossage_android.domain.model.Message
 import com.klim.trossage_android.domain.model.User
 import com.klim.trossage_android.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class ChatRepositoryImpl(
-    private val api: ChatApiService,
-    private val webSocketManager: ChatWebSocketManager,
-    private val authPreferences: AuthPreferences
+    private val api: ChatApiService
 ) : ChatRepository {
 
-    override suspend fun getChats(offset: Int, limit: Int): Result<List<Chat>> {
+    private val _chatsFlow = MutableStateFlow<List<Chat>>(emptyList())
+
+    override fun getChatsFlow(): Flow<List<Chat>> = _chatsFlow
+
+    override suspend fun loadChats(offset: Int, limit: Int): Result<List<Chat>> {
         return try {
-            val response = api.getChats(offset, limit)
-            val chats = response.chats.map { ChatMapper.toChat(it) }
-            Result.success(chats)
+            // TODO: когда появится /chat - раскомментировать
+            // val response = api.getChats(offset, limit)
+            // val chats = response.chats.map { ChatMapper.toChat(it) }
+            // _chatsFlow.value = chats
+            // Result.success(chats)
+            Result.success(emptyList())
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -31,18 +31,22 @@ class ChatRepositoryImpl(
 
     override suspend fun searchUsers(query: String): Result<List<User>> {
         return try {
-            val users = api.searchUsers(query).map { ChatMapper.toUser(it) }
-            Result.success(users)
+            // TODO: когда появится /users/search - раскомментировать
+            // val users = api.searchUsers(query)
+            // Result.success(users.map { ChatMapper.toUser(it) })
+            Result.success(emptyList())
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun createOrGetChat(userId: String): Result<Chat> {
+    override suspend fun createChat(companionUserId: String): Result<Chat> {
         return try {
-            val response = api.createChat(CreateChatRequest(userId))
-            val chat = ChatMapper.toChat(response.chat)
-            Result.success(chat)
+            // TODO: когда появится POST /chat - раскомментировать
+            // val response = api.createChat(CreateChatRequest(companionUserId))
+            // val chat = ChatMapper.toChat(response.chat)
+            // Result.success(chat)
+            Result.failure(Exception("Ручка /chat пока не реализована"))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -50,28 +54,12 @@ class ChatRepositoryImpl(
 
     override suspend fun deleteChat(chatId: String): Result<Unit> {
         return try {
-            api.deleteChat(chatId)
-            Result.success(Unit)
+            // TODO: когда появится DELETE /chat/{id} - раскомментировать
+            // api.deleteChat(chatId)
+            // Result.success(Unit)
+            Result.failure(Exception("Ручка DELETE /chat пока не реализована"))
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    override fun observeNewMessages(): Flow<Message> {
-        val currentUserId = authPreferences.getCurrentUser()?.userId ?: ""
-        return webSocketManager.observeMessages()
-            .map { dto -> ChatMapper.toMessage(dto, currentUserId) }
-    }
-
-    override fun observeChatUpdates(): Flow<Chat> {
-        return webSocketManager.observeChatUpdates()
-            .map { dto -> ChatMapper.toChat(dto) }
-    }
-
-    override fun connectWebSocket() {
-    }
-
-    override fun disconnectWebSocket() {
-        webSocketManager.disconnect()
     }
 }
