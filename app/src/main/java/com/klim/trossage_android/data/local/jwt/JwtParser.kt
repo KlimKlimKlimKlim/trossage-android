@@ -1,8 +1,8 @@
 package com.klim.trossage_android.data.local.jwt
 
-import android.util.Base64
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import java.util.Base64
 
 object JwtParser {
 
@@ -14,7 +14,7 @@ object JwtParser {
             if (parts.size != 3) return null
 
             val payload = parts[1]
-            val decodedBytes = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP)
+            val decodedBytes = Base64.getUrlDecoder().decode(payload)
             val json = String(decodedBytes, Charsets.UTF_8)
 
             val jsonObject = Gson().fromJson(json, JsonObject::class.java)
