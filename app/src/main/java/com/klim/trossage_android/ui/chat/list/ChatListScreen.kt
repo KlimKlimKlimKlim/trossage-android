@@ -161,6 +161,8 @@ fun ChatListScreen(
                                 UserSearchItem(
                                     user = user,
                                     onClick = {
+                                        viewModel.createChat(user.userId.toInt()) { chatId ->
+                                        }
                                         showSearchDialog = false
                                         searchQuery = ""
                                         viewModel.searchUsers("")
@@ -268,12 +270,6 @@ fun ChatListItem(
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1
             )
-        }
-
-        if (!chat.isRead) {
-            Badge {
-                Text("●")
-            }
         }
     }
 }

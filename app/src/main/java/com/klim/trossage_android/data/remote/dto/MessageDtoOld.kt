@@ -2,7 +2,7 @@ package com.klim.trossage_android.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
-data class MessageDto(
+data class MessageDtoOld(
     @SerializedName("message_id")
     val messageId: String,
     @SerializedName("chat_id")
@@ -14,19 +14,9 @@ data class MessageDto(
     val text: String,
     val timestamp: Long
 )
+
 data class SendMessageRequest(
-    @SerializedName("chat_id")
-    val chatId: String,
     val text: String
-)
-
-data class SendMessageResponse(
-    val message: MessageDto
-)
-
-data class MessageListResponse(
-    val messages: List<MessageDto>,
-    val total: Int
 )
 
 data class TypingMessage(
@@ -34,4 +24,3 @@ data class TypingMessage(
     val chatId: String,
     val text: String
 )
-

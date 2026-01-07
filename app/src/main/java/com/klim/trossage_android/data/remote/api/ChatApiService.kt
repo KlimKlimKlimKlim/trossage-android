@@ -41,4 +41,27 @@ interface ChatApiService {
         @Query("limit") limit: Int = 20,
         @Query("offset") offset: Int = 0
     ): ApiResponse<UsersSearchResponse>
+
+    @GET("chats")
+    suspend fun getChats(
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
+    ): ApiResponse<ChatsListResponse>
+
+    @POST("chats")
+    suspend fun createChat(@Body request: CreateChatRequest): ApiResponse<ChatResponse>
+
+    @GET("chats/{chat_id}/messages")
+    suspend fun getMessages(
+        @Path("chat_id") chatId: Int,
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
+    ): ApiResponse<MessagesResponse>
+
+    @POST("chats/{chat_id}/messages")
+    suspend fun sendMessage(
+        @Path("chat_id") chatId: Int,
+        @Body request: SendMessageRequest
+    ): ApiResponse<MessageResponse>
+
 }

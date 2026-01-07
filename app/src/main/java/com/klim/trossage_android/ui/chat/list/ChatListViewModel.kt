@@ -32,6 +32,7 @@ class ChatListViewModel(
     private val searchPageSize = 20
 
     init {
+        loadChats()
     }
 
     fun loadChats() {
@@ -128,7 +129,7 @@ class ChatListViewModel(
         }
     }
 
-    fun createChat(companionUserId: String, onSuccess: (String) -> Unit) {
+    fun createChat(companionUserId: Int, onSuccess: (Int) -> Unit) {
         viewModelScope.launch {
             chatRepository.createChat(companionUserId)
                 .onSuccess { chat -> onSuccess(chat.chatId) }
@@ -137,40 +138,6 @@ class ChatListViewModel(
                         error = error.message ?: "Ошибка создания чата"
                     )
                 }
-        }
-    }
-
-    fun deleteChat(chatId: String) {
-        viewModelScope.launch {
-            chatRepository.deleteChat(chatId)
-                .onSuccess {
-                    val updatedChats = _uiState.value.chats.filter { it.chatId != chatId }
-                    _uiState.value = _uiState.value.copy(chats = updatedChats)
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        error = error.message ?: "Ошибка удаления чата"
-                    )
-                }
-        }
-    }
-
-    private fun observeRealtimeUpdates() {
-    }
-
-    private fun updateChatWithNewMessage(message: com.klim.trossage_android.domain.model.Message) {
-        val currentChats = _uiState.value.chats.toMutableList()
-        val chatIndex = currentChats.indexOfFirst { it.chatId == message.chatId }
-
-        if (chatIndex != -1) {
-            val updatedChat = currentChats[chatIndex].copy(
-                lastMessage = message.text,
-                lastMessageTimestamp = message.timestamp,
-                isRead = message.isMine
-            )
-            currentChats.removeAt(chatIndex)
-            currentChats.add(0, updatedChat)
-            _uiState.value = _uiState.value.copy(chats = currentChats)
         }
     }
 

@@ -22,11 +22,6 @@ data class ChatListResponse(
     val total: Int
 )
 
-data class CreateChatRequest(
-    @SerializedName("companion_user_id")
-    val companionUserId: String
-)
-
 data class CreateChatResponse(
     val chat: ChatDto
 )

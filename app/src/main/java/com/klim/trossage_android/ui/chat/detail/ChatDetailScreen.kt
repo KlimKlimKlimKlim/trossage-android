@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.klim.trossage_android.domain.model.Message
+import androidx.compose.foundation.layout.navigationBarsPadding
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,13 +37,20 @@ fun ChatDetailScreen(
             )
         },
         bottomBar = {
-            MessageInput(
-                text = uiState.messageText,
-                onTextChanged = viewModel::onMessageTextChanged,
-                onSendClick = viewModel::sendMessage,
-                enabled = !uiState.isSending
-            )
+            Surface(
+                shadowElevation = 8.dp,
+                tonalElevation = 0.dp
+            ) {
+                MessageInput(
+                    text = uiState.messageText,
+                    onTextChanged = viewModel::onMessageTextChanged,
+                    onSendClick = viewModel::sendMessage,
+                    enabled = !uiState.isSending,
+                    modifier = Modifier.navigationBarsPadding()
+                )
+            }
         }
+
     ) { padding ->
         Column(
             modifier = Modifier
@@ -110,10 +119,11 @@ fun MessageInput(
     text: String,
     onTextChanged: (String) -> Unit,
     onSendClick: () -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -134,6 +144,7 @@ fun MessageInput(
         }
     }
 }
+
 
 @Composable
 fun MessageItem(message: Message) {
@@ -167,7 +178,7 @@ fun MessageItem(message: Message) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = message.timestamp.toString(), // ← добавлен .toString()
+                    text = com.klim.trossage_android.data.util.DateUtils.formatTime(message.timestamp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

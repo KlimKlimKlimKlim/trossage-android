@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class ChatDetailViewModel(
-    private val chatId: String,
+    private val chatId: Int,
     private val companionName: String,
     private val messageRepository: MessageRepository
 ) : ViewModel() {
@@ -21,8 +21,6 @@ class ChatDetailViewModel(
 
     init {
         loadMessages()
-        // TODO: когда будет WebSocket - раскомментировать
-        // observeRealtimeUpdates()
     }
 
     private fun loadMessages() {
@@ -56,11 +54,6 @@ class ChatDetailViewModel(
 
     fun onMessageTextChanged(text: String) {
         _uiState.value = _uiState.value.copy(messageText = text)
-
-        // TODO: когда будет WebSocket - раскомментировать
-        // if (text.isNotEmpty()) {
-        //     messageRepository.sendTypingUpdate(chatId, true)
-        // }
     }
 
     fun sendMessage() {
@@ -78,8 +71,6 @@ class ChatDetailViewModel(
                         messageText = "",
                         isSending = false
                     )
-                    // TODO: когда будет WebSocket
-                    // messageRepository.sendTypingUpdate(chatId, false)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -88,35 +79,6 @@ class ChatDetailViewModel(
                     )
                 }
         }
-    }
-
-    private fun observeRealtimeUpdates() {
-        // TODO: когда будет WebSocket - раскомментировать
-        // viewModelScope.launch {
-        //     messageRepository.connectWebSockets(chatId)
-        //
-        //     launch {
-        //         messageRepository.observeNewMessages(chatId).collect { message ->
-        //             if (message.chatId == chatId &&
-        //                 _uiState.value.messages.none { it.messageId == message.messageId }) {
-        //                 val updatedMessages = _uiState.value.messages + message
-        //                 _uiState.value = _uiState.value.copy(messages = updatedMessages)
-        //             }
-        //         }
-        //     }
-        //
-        //     launch {
-        //         messageRepository.observeTyping(chatId).collect { isTyping ->
-        //             _uiState.value = _uiState.value.copy(companionIsTyping = isTyping)
-        //         }
-        //     }
-        // }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        // TODO: когда будет WebSocket
-        // messageRepository.disconnectWebSockets()
     }
 }
 

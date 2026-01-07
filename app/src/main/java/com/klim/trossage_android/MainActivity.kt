@@ -17,6 +17,7 @@ import com.klim.trossage_android.data.repository.AuthRepositoryImpl
 import com.klim.trossage_android.data.repository.ChatRepositoryImpl
 import com.klim.trossage_android.data.repository.SessionRepositoryImpl
 import com.klim.trossage_android.data.repository.UserRepositoryImpl
+import com.klim.trossage_android.data.repository.MessageRepositoryImpl
 import com.klim.trossage_android.domain.repository.AuthRepository
 import com.klim.trossage_android.domain.repository.ChatRepository
 import com.klim.trossage_android.domain.repository.SessionRepository
@@ -33,6 +34,9 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import androidx.room.Room
+import com.klim.trossage_android.data.local.room.AppDatabase
+
 
 class MainActivity : ComponentActivity() {
 
@@ -45,6 +49,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var loginViewModel: LoginViewModel
     private lateinit var registerViewModel: RegisterViewModel
     private lateinit var settingsViewModel: SettingsViewModel
+    private lateinit var messageRepository: com.klim.trossage_android.domain.repository.MessageRepository
+
 
     private val sessionExpiredFlow = MutableSharedFlow<Unit>()
     private var navController: NavHostController? = null
@@ -82,7 +88,8 @@ class MainActivity : ComponentActivity() {
                     registerViewModel = registerViewModel,
                     settingsViewModel = settingsViewModel,
                     chatRepository = chatRepository,
-                    userRepository = userRepository
+                    userRepository = userRepository,
+                    messageRepository = messageRepository
                 )
             }
         }
@@ -127,13 +134,26 @@ class MainActivity : ComponentActivity() {
 
         val api = retrofit.create(ChatApiService::class.java)
 
+        val database = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java,
+            "trossage_db"
+        )
+            .fallbackToDestructiveMigration()
+            .build()
+
+        val chatDao = database.chatDao()
+        val messageDao = database.messageDao()
+
         authRepository = AuthRepositoryImpl(api, authPrefs)
         userRepository = UserRepositoryImpl(api, authPrefs)
         sessionRepository = SessionRepositoryImpl(api, authPrefs)
-        chatRepository = ChatRepositoryImpl(api)
+        chatRepository = ChatRepositoryImpl(api, chatDao)
+        messageRepository = MessageRepositoryImpl(api, messageDao, authPrefs)
 
         loginViewModel = LoginViewModel(authRepository)
         registerViewModel = RegisterViewModel(authRepository)
         settingsViewModel = SettingsViewModel(userRepository, sessionRepository, authRepository)
     }
+
 }
