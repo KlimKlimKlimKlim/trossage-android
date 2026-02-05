@@ -64,4 +64,10 @@ interface ChatApiService {
         @Body request: SendMessageRequest
     ): ApiResponse<MessageResponse>
 
+    @POST("chats/{chat_id}/typing")
+    suspend fun sendTyping(
+        @Path("chat_id") chatId: Int,
+        @Body request: TypingUpdateRequest
+    )
+
 }

@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TrossageTheme {
-            val nav = rememberNavController()
+                val nav = rememberNavController()
                 navController = nav
 
                 LaunchedEffect(Unit) {
@@ -89,10 +89,12 @@ class MainActivity : ComponentActivity() {
                     settingsViewModel = settingsViewModel,
                     chatRepository = chatRepository,
                     userRepository = userRepository,
-                    messageRepository = messageRepository
+                    messageRepository = messageRepository,
+                    authPrefs = authPrefs
                 )
             }
         }
+
     }
 
     private fun setupDependencies() {

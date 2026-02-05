@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.ui.auth.login.LoginScreen
 import com.klim.trossage_android.ui.auth.login.LoginViewModel
 import com.klim.trossage_android.ui.auth.register.RegisterScreen
@@ -37,7 +38,8 @@ fun NavGraph(
     settingsViewModel: SettingsViewModel,
     chatRepository: com.klim.trossage_android.domain.repository.ChatRepository,
     userRepository: com.klim.trossage_android.domain.repository.UserRepository,
-    messageRepository: com.klim.trossage_android.domain.repository.MessageRepository
+    messageRepository: com.klim.trossage_android.domain.repository.MessageRepository,
+    authPrefs: AuthPreferences
 ) {
     NavHost(navController = navController, startDestination = startDestination) {
 
@@ -97,8 +99,8 @@ fun NavGraph(
             val chatId = backStackEntry.arguments?.getInt("chatId") ?: 0
             val companionName = backStackEntry.arguments?.getString("companionName") ?: ""
 
-            val chatDetailViewModel = remember {
-                ChatDetailViewModel(chatId, companionName, messageRepository)
+            val chatDetailViewModel = remember(chatId, companionName, authPrefs) {
+                ChatDetailViewModel(chatId, companionName, messageRepository, authPrefs)
             }
 
             ChatDetailScreen(

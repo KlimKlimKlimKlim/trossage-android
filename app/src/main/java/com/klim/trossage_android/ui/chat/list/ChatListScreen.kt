@@ -3,12 +3,15 @@ package com.klim.trossage_android.ui.chat.list
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,8 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.User
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun ChatListScreen(
     viewModel: ChatListViewModel,
@@ -30,6 +34,24 @@ fun ChatListScreen(
 
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var refreshing by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                try {
+                    viewModel.refresh()
+                } finally {
+                    refreshing = false
+                }
+            }
+        }
+    )
 
     Scaffold(
         topBar = {
@@ -48,11 +70,51 @@ fun ChatListScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pullRefresh(pullRefreshState),
+                state = listState
+            ) {
+                itemsIndexed(uiState.chats) { index, chat ->
+                    ChatListItem(
+                        chat = chat,
+                        onClick = { onChatClick(chat) }
+                    )
+                    HorizontalDivider()
+
+                    if (index == uiState.chats.size - 1 && uiState.hasMore && !uiState.isLoading) {
+                        LaunchedEffect(Unit) {
+                            viewModel.loadChats()
+                        }
+                    }
+                }
+
+                if (uiState.isLoading && uiState.chats.isNotEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        }
+                    }
+                }
+            }
+
+            PullRefreshIndicator(
+                refreshing = refreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+
             if (uiState.isLoading && uiState.chats.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -67,41 +129,14 @@ fun ChatListScreen(
                 ) {
                     Text("Нет чатов")
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(uiState.chats) { chat ->
-                        ChatListItem(
-                            chat = chat,
-                            onClick = { onChatClick(chat) }
-                        )
-                        HorizontalDivider()
-                    }
-
-                    if (uiState.hasMore && !uiState.isLoading) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Button(onClick = { viewModel.loadChats() }) {
-                                    Text("Загрузить ещё")
-                                }
-                            }
-                        }
-                    }
-                }
             }
+        }
 
-            uiState.error?.let { error ->
-                Snackbar(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(error)
-                }
+        uiState.error?.let { error ->
+            Snackbar(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(error)
             }
         }
     }
@@ -149,13 +184,13 @@ fun ChatListScreen(
                             Text("Пользователи не найдены")
                         }
                     } else if (searchState.users.isNotEmpty()) {
-                        val listState = rememberLazyListState()
+                        val searchListState = rememberLazyListState()
 
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(300.dp),
-                            state = listState
+                            state = searchListState
                         ) {
                             itemsIndexed(searchState.users) { index, user ->
                                 UserSearchItem(

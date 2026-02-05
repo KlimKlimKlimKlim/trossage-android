@@ -5,8 +5,11 @@ import com.klim.trossage_android.data.local.room.dao.MessageDao
 import com.klim.trossage_android.data.mapper.ChatMapper
 import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.dto.SendMessageRequest
+import com.klim.trossage_android.data.remote.dto.TypingOperationDto
+import com.klim.trossage_android.data.remote.dto.TypingUpdateRequest
 import com.klim.trossage_android.domain.model.Message
 import com.klim.trossage_android.domain.repository.MessageRepository
+import com.klim.trossage_android.domain.repository.TypingOperation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -58,7 +61,6 @@ class MessageRepositoryImpl(
         }
     }
 
-
     override suspend fun sendMessage(chatId: Int, text: String): Result<Message> {
         return try {
             val response = api.sendMessage(chatId, SendMessageRequest(text))
@@ -75,6 +77,23 @@ class MessageRepositoryImpl(
             Result.success(message)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun sendTyping(chatId: Int, operations: List<TypingOperation>) {
+        try {
+            val request = TypingUpdateRequest(
+                operations = operations.map {
+                    TypingOperationDto(
+                        type = it.type,
+                        position = it.position,
+                        length = it.length,
+                        text = it.text
+                    )
+                }
+            )
+            api.sendTyping(chatId, request)
+        } catch (e: Exception) {
         }
     }
 }

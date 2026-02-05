@@ -7,4 +7,12 @@ interface MessageRepository {
     fun getMessagesFlow(chatId: Int): Flow<List<Message>>
     suspend fun loadMessages(chatId: Int, offset: Int, limit: Int): Result<List<Message>>
     suspend fun sendMessage(chatId: Int, text: String): Result<Message>
+    suspend fun sendTyping(chatId: Int, operations: List<TypingOperation>)
 }
+
+data class TypingOperation(
+    val type: String,
+    val position: Int? = null,
+    val length: Int? = null,
+    val text: String? = null
+)

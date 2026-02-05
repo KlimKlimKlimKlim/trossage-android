@@ -36,8 +36,6 @@ class ChatListViewModel(
     }
 
     fun loadChats() {
-        if (_uiState.value.isLoading) return
-
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
         viewModelScope.launch {
@@ -45,7 +43,7 @@ class ChatListViewModel(
                 .onSuccess { newChats ->
                     val currentChats = _uiState.value.chats
                     _uiState.value = _uiState.value.copy(
-                        chats = currentChats + newChats,
+                        chats = if (currentOffset == 0) newChats else currentChats + newChats,
                         isLoading = false,
                         hasMore = newChats.size == pageSize
                     )
@@ -62,7 +60,10 @@ class ChatListViewModel(
 
     fun refresh() {
         currentOffset = 0
-        _uiState.value = _uiState.value.copy(chats = emptyList())
+        _uiState.value = _uiState.value.copy(
+            chats = emptyList(),
+            error = null
+        )
         loadChats()
     }
 
