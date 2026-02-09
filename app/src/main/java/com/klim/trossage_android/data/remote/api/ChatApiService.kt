@@ -2,6 +2,7 @@ package com.klim.trossage_android.data.remote.api
 
 import com.klim.trossage_android.data.remote.dto.*
 import com.klim.trossage_android.data.remote.network.AuthType
+import retrofit2.Response
 import retrofit2.http.*
 
 interface ChatApiService {
@@ -68,6 +69,6 @@ interface ChatApiService {
     suspend fun sendTyping(
         @Path("chat_id") chatId: Int,
         @Body request: TypingUpdateRequest
-    )
+    ): Response<Unit>
 
 }

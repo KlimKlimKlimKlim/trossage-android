@@ -1,6 +1,7 @@
 package com.klim.trossage_android
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.klim.trossage_android.ui.theme.TrossageTheme
@@ -9,6 +10,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.network.AuthHeaderInterceptor
@@ -102,11 +104,16 @@ class MainActivity : ComponentActivity() {
 
         authPrefs = AuthPreferences(applicationContext)
 
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
+        val gson = GsonBuilder()
+            .create()
+
+        val loggingInterceptor = HttpLoggingInterceptor { message ->
+            Log.d("API_LOG", message)
+        }.apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        val authHeaderInterceptor = AuthHeaderInterceptor(authPrefs, baseApi)
+        val authHeaderInterceptor = AuthHeaderInterceptor(authPrefs, baseApi, gson)
 
         val tokenAuthenticator = TokenRefreshAuthenticator(
             authPrefs = authPrefs,
@@ -116,7 +123,7 @@ class MainActivity : ComponentActivity() {
                     sessionExpiredFlow.emit(Unit)
                 }
             },
-            gson = Gson()
+            gson = gson
         )
 
         val okHttpClient = OkHttpClient.Builder()
@@ -131,7 +138,7 @@ class MainActivity : ComponentActivity() {
         val retrofit = Retrofit.Builder()
             .baseUrl(baseApi)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
         val api = retrofit.create(ChatApiService::class.java)

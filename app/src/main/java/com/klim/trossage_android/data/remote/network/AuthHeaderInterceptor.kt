@@ -1,5 +1,6 @@
 package com.klim.trossage_android.data.remote.network
 
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.klim.trossage_android.data.local.jwt.JwtParser
@@ -12,6 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
 
 class AuthHeaderInterceptor(
     private val authPrefs: AuthPreferences,
@@ -20,14 +22,20 @@ class AuthHeaderInterceptor(
 ) : Interceptor {
 
     private val lock = Any()
-    private val refreshClient = OkHttpClient()
+    private val loggingInterceptor = HttpLoggingInterceptor { message ->
+        Log.d("API_LOG", message)
+    }.apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+    private val refreshClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .build()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
 
         val authType = original.header(AuthType.HEADER) ?: AuthType.ACCESS
 
-        // Для refresh запросов не делаем проактивный refresh
         if (authType == AuthType.REFRESH) {
             val refreshToken = authPrefs.getRefreshToken()
             val builder = original.newBuilder().removeHeader(AuthType.HEADER)
@@ -37,11 +45,9 @@ class AuthHeaderInterceptor(
             return chain.proceed(builder.build())
         }
 
-        // Проактивный refresh: если access token истекает < 60 сек
         val currentAccessToken = authPrefs.getAccessToken()
         if (JwtParser.isTokenExpiringSoon(currentAccessToken, thresholdSeconds = 60)) {
             synchronized(lock) {
-                // Перепроверяем после получения лока (другой поток мог обновить)
                 val newAccessToken = authPrefs.getAccessToken()
                 if (JwtParser.isTokenExpiringSoon(newAccessToken, thresholdSeconds = 60)) {
                     performTokenRefresh()
@@ -49,7 +55,6 @@ class AuthHeaderInterceptor(
             }
         }
 
-        // Добавляем актуальный access token к запросу
         val token = authPrefs.getAccessToken()
         val builder = original.newBuilder().removeHeader(AuthType.HEADER)
         if (!token.isNullOrBlank()) {
@@ -83,7 +88,6 @@ class AuthHeaderInterceptor(
                 authPrefs.saveTokens(parsed.data.accessToken, parsed.data.refreshToken)
             }
         } catch (e: Exception) {
-            // Если проактивный refresh не удался, ничего страшного - fallback на Authenticator
         }
     }
 }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.google.gson.JsonParser
+import com.google.gson.Gson
 import android.util.Log
 
 class ChatDetailViewModel(
@@ -226,8 +227,20 @@ class ChatDetailViewModel(
             pendingOperations.addAll(operations)
             delay(300)
             if (pendingOperations.isNotEmpty()) {
-                messageRepository.sendTyping(chatId, pendingOperations.toList())
-                Log.d("ChatVM", "Sent ${pendingOperations.size} typing ops via REST")
+                Log.d("ChatVM", "===== TYPING REQUEST =====")
+                Log.d("ChatVM", "chatId: $chatId")
+                Log.d("ChatVM", "operations: $pendingOperations")
+                Log.d("ChatVM", "JSON: ${Gson().toJson(pendingOperations)}")
+
+                val result = try {
+                    messageRepository.sendTyping(chatId, pendingOperations.toList())
+                    "SUCCESS"
+                } catch (e: Exception) {
+                    "ERROR: ${e.message}"
+                }
+
+                Log.d("ChatVM", "Result: $result")
+                Log.d("ChatVM", "==========================")
                 pendingOperations.clear()
             }
             previousTypingText = text
@@ -237,14 +250,50 @@ class ChatDetailViewModel(
     private fun calculateSimpleDiff(oldText: String, newText: String): List<TypingOperation> {
         if (oldText == newText) return emptyList()
 
-        return listOf(
-            TypingOperation(
-                type = "replace",
-                position = 0,
-                length = oldText.length,
-                text = newText
-            )
-        )
+        when {
+            newText.isEmpty() -> {
+                return listOf(TypingOperation(type = "clear"))
+            }
+            oldText.isEmpty() -> {
+                return listOf(
+                    TypingOperation(
+                        type = "insert",
+                        position = 0,
+                        text = newText
+                    )
+                )
+            }
+            newText.startsWith(oldText) -> {
+                val addedText = newText.substring(oldText.length)
+                return listOf(
+                    TypingOperation(
+                        type = "insert",
+                        position = oldText.length,
+                        text = addedText
+                    )
+                )
+            }
+            oldText.startsWith(newText) -> {
+                val deletedLength = oldText.length - newText.length
+                return listOf(
+                    TypingOperation(
+                        type = "delete",
+                        position = newText.length,
+                        length = deletedLength
+                    )
+                )
+            }
+            else -> {
+                return listOf(
+                    TypingOperation(
+                        type = "replace",
+                        position = 0,
+                        length = oldText.length,
+                        text = newText
+                    )
+                )
+            }
+        }
     }
 
     fun sendMessage() {

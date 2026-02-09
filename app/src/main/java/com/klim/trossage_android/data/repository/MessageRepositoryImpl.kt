@@ -1,5 +1,7 @@
 package com.klim.trossage_android.data.repository
 
+import android.util.Log
+import com.google.gson.Gson
 import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.local.room.dao.MessageDao
 import com.klim.trossage_android.data.mapper.ChatMapper
@@ -92,8 +94,19 @@ class MessageRepositoryImpl(
                     )
                 }
             )
+
+            Log.d("REPO", "===== SENDING TYPING =====")
+            Log.d("REPO", "chatId: $chatId")
+            Log.d("REPO", "Request JSON: ${Gson().toJson(request)}")
+
             api.sendTyping(chatId, request)
+
+            Log.d("REPO", "Typing sent successfully")
+            Log.d("REPO", "==========================")
         } catch (e: Exception) {
+            Log.e("REPO", "===== TYPING ERROR =====")
+            Log.e("REPO", "Error: ${e.message}", e)
+            Log.e("REPO", "========================")
         }
     }
 }
