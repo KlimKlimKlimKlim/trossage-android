@@ -7,5 +7,12 @@ data class Message(
     val senderDisplayName: String,
     val text: String,
     val timestamp: Long,
-    val isMine: Boolean
+    val isMine: Boolean,
+    val status: MessageStatus = MessageStatus.SENT
 )
+
+enum class MessageStatus {
+    SENDING,
+    SENT,
+    FAILED
+}

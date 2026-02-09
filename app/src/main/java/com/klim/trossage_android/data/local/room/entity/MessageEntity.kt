@@ -17,5 +17,6 @@ data class MessageEntity(
     val text: String,
     val timestamp: Long,
     @ColumnInfo(name = "is_mine")
-    val isMine: Boolean
+    val isMine: Boolean,
+    val status: String = "SENT"
 )

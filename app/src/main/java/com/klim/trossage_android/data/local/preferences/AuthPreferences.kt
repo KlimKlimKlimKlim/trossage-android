@@ -26,6 +26,7 @@ class AuthPreferences(context: Context) {
         private const val KEY_ID = "user_id"
         private const val KEY_LOGIN = "login"
         private const val KEY_DISPLAY = "display_name"
+        private const val KEY_DARK_MODE = "dark_mode"
     }
 
     fun saveTokens(accessToken: String, refreshToken: String) {
@@ -57,7 +58,15 @@ class AuthPreferences(context: Context) {
         return User(userId = id.toString(), username = login, displayName = display)
     }
 
+    fun setDarkMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DARK_MODE, enabled).apply()
+    }
+
+    fun isDarkMode(): Boolean = prefs.getBoolean(KEY_DARK_MODE, false)
+
     fun clear() {
+        val darkMode = isDarkMode()
         prefs.edit().clear().apply()
+        setDarkMode(darkMode)
     }
 }

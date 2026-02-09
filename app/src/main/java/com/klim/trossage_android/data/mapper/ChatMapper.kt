@@ -9,6 +9,7 @@ import com.klim.trossage_android.data.remote.dto.UserResponse
 import com.klim.trossage_android.data.util.DateUtils
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.Message
+import com.klim.trossage_android.domain.model.MessageStatus
 import com.klim.trossage_android.domain.model.User
 
 object ChatMapper {
@@ -45,7 +46,8 @@ object ChatMapper {
             senderDisplayName = senderName,
             text = dto.text,
             timestamp = DateUtils.parseIsoToMillis(dto.createdAt),
-            isMine = dto.senderId == currentUserId
+            isMine = dto.senderId == currentUserId,
+            status = MessageStatus.SENT
         )
     }
 
@@ -89,7 +91,8 @@ object ChatMapper {
             senderName = message.senderDisplayName,
             text = message.text,
             timestamp = message.timestamp,
-            isMine = message.isMine
+            isMine = message.isMine,
+            status = message.status.name
         )
     }
 
@@ -101,7 +104,12 @@ object ChatMapper {
             senderDisplayName = entity.senderName,
             text = entity.text,
             timestamp = entity.timestamp,
-            isMine = entity.isMine
+            isMine = entity.isMine,
+            status = try {
+                MessageStatus.valueOf(entity.status)
+            } catch (e: Exception) {
+                MessageStatus.SENT
+            }
         )
     }
 }

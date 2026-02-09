@@ -2,6 +2,7 @@ package com.klim.trossage_android.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.domain.repository.AuthRepository
 import com.klim.trossage_android.domain.repository.SessionRepository
 import com.klim.trossage_android.domain.repository.UserRepository
@@ -11,11 +12,15 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val userRepository: UserRepository,
     private val sessionRepository: SessionRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val authPrefs: AuthPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    private val _darkModeEnabled = MutableStateFlow(authPrefs.isDarkMode())
+    val darkModeEnabled: StateFlow<Boolean> = _darkModeEnabled.asStateFlow()
 
     fun loadUserData() {
         viewModelScope.launch {
@@ -35,6 +40,12 @@ class SettingsViewModel(
                     )
                 }
         }
+    }
+
+    fun toggleDarkMode() {
+        val newValue = !_darkModeEnabled.value
+        _darkModeEnabled.value = newValue
+        authPrefs.setDarkMode(newValue)
     }
 
     fun showDisplayNameDialog() {

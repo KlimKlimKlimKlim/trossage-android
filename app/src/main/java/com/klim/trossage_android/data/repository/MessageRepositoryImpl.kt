@@ -10,10 +10,12 @@ import com.klim.trossage_android.data.remote.dto.SendMessageRequest
 import com.klim.trossage_android.data.remote.dto.TypingOperationDto
 import com.klim.trossage_android.data.remote.dto.TypingUpdateRequest
 import com.klim.trossage_android.domain.model.Message
+import com.klim.trossage_android.domain.model.MessageStatus
 import com.klim.trossage_android.domain.repository.MessageRepository
 import com.klim.trossage_android.domain.repository.TypingOperation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.random.Random
 
 class MessageRepositoryImpl(
     private val api: ChatApiService,
@@ -29,7 +31,7 @@ class MessageRepositoryImpl(
         }
     }
 
-    override suspend fun loadMessages(chatId: Int, offset: Int, limit: Int): Result<List<Message>> {
+    override suspend fun loadMessages(chatId: Int, offset: Int, limit: Int, companionName: String): Result<List<Message>> {
         return try {
             if (offset == 0) {
                 val cached = messageDao.getMessagesByChatId(chatId).map {
@@ -46,8 +48,15 @@ class MessageRepositoryImpl(
             }
 
             val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
+            val currentUserName = authPrefs.getCurrentUser()?.displayName ?: ""
+
             val messages = response.data.messages.map { dto ->
-                ChatMapper.toMessage(dto, currentUserId, "")
+                val senderName = if (dto.senderId == currentUserId) {
+                    currentUserName
+                } else {
+                    companionName
+                }
+                ChatMapper.toMessage(dto, currentUserId, senderName)
             }.sortedBy { it.timestamp }
 
             if (offset == 0) {
@@ -64,20 +73,32 @@ class MessageRepositoryImpl(
     }
 
     override suspend fun sendMessage(chatId: Int, text: String): Result<Message> {
+        val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
+        val currentUserName = authPrefs.getCurrentUser()?.displayName ?: ""
+
+        val tempMessage = Message(
+            messageId = Random.nextInt(Int.MIN_VALUE, -1),
+            chatId = chatId,
+            senderId = currentUserId,
+            senderDisplayName = currentUserName,
+            text = text,
+            timestamp = System.currentTimeMillis(),
+            isMine = true,
+            status = MessageStatus.SENDING
+        )
+
         return try {
             val response = api.sendMessage(chatId, SendMessageRequest(text))
             if (!response.isSuccess || response.data == null) {
                 return Result.failure(Exception(response.error ?: "Unknown error"))
             }
 
-            val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
-            val currentUserName = authPrefs.getCurrentUser()?.displayName ?: ""
             val message = ChatMapper.toMessage(response.data, currentUserId, currentUserName)
-
             messageDao.insertMessage(ChatMapper.toMessageEntity(message))
 
             Result.success(message)
         } catch (e: Exception) {
+            val failedMessage = tempMessage.copy(status = MessageStatus.FAILED)
             Result.failure(e)
         }
     }
@@ -103,6 +124,8 @@ class MessageRepositoryImpl(
 
             Log.d("REPO", "Typing sent successfully")
             Log.d("REPO", "==========================")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("REPO", "===== TYPING ERROR =====")
             Log.e("REPO", "Error: ${e.message}", e)

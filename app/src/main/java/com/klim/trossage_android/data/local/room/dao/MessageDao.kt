@@ -18,9 +18,15 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)
 
+    @Query("UPDATE messages SET status = :status WHERE id = :messageId")
+    suspend fun updateMessageStatus(messageId: Int, status: String)
+
     @Query("DELETE FROM messages WHERE chat_id = :chatId AND id NOT IN (SELECT id FROM messages WHERE chat_id = :chatId ORDER BY timestamp DESC LIMIT 100)")
     suspend fun deleteOldMessages(chatId: Int)
 
     @Query("DELETE FROM messages WHERE chat_id = :chatId")
     suspend fun clearChatMessages(chatId: Int)
+
+    @Query("DELETE FROM messages WHERE id = :messageId")
+    suspend fun deleteMessage(messageId: Int)
 }

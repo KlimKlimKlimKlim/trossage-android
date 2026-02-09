@@ -38,6 +38,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import androidx.room.Room
 import com.klim.trossage_android.data.local.room.AppDatabase
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 
 class MainActivity : ComponentActivity() {
@@ -63,7 +65,9 @@ class MainActivity : ComponentActivity() {
         setupDependencies()
 
         setContent {
-            TrossageTheme {
+            val darkModeEnabled by settingsViewModel.darkModeEnabled.collectAsState()
+
+            TrossageTheme(darkTheme = darkModeEnabled) {
                 val nav = rememberNavController()
                 navController = nav
 
@@ -162,7 +166,7 @@ class MainActivity : ComponentActivity() {
 
         loginViewModel = LoginViewModel(authRepository)
         registerViewModel = RegisterViewModel(authRepository)
-        settingsViewModel = SettingsViewModel(userRepository, sessionRepository, authRepository)
+        settingsViewModel = SettingsViewModel(userRepository, sessionRepository, authRepository, authPrefs)
     }
 
 }

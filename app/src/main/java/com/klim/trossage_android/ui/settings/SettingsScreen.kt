@@ -21,6 +21,7 @@ fun SettingsScreen(
     onLoggedOut: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    val darkModeEnabled by viewModel.darkModeEnabled.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadUserData()
@@ -53,13 +54,165 @@ fun SettingsScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Карточка профиля
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Профиль",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            ListItem(
+                                headlineContent = { Text("Логин") },
+                                supportingContent = { Text(state.currentLogin) },
+                                leadingContent = {
+                                    Icon(Icons.Default.Person, contentDescription = null)
+                                },
+                                colors = ListItemDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            )
+
+                            ListItem(
+                                headlineContent = { Text("Отображаемое имя") },
+                                supportingContent = { Text(state.currentDisplayName) },
+                                leadingContent = {
+                                    Icon(Icons.Default.Face, contentDescription = null)
+                                },
+                                colors = ListItemDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Внешний вид",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            ListItem(
+                                headlineContent = { Text("Темная тема") },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = darkModeEnabled,
+                                        onCheckedChange = { viewModel.toggleDarkMode() }
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Управление аккаунтом",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            FilledTonalButton(
+                                onClick = viewModel::showDisplayNameDialog,
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Изменить отображаемое имя")
+                            }
+
+                            FilledTonalButton(
+                                onClick = viewModel::showPasswordDialog,
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Сменить пароль")
+                            }
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Сессии",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            OutlinedButton(
+                                onClick = { viewModel.logout(onLoggedOut) },
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.ExitToApp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Выйти с этого устройства")
+                            }
+
+                            OutlinedButton(
+                                onClick = viewModel::logoutAllDevices,
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.Phone,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Выйти со всех устройств")
+                            }
+                        }
+                    }
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = MaterialTheme.colorScheme.errorContainer
                         )
                     ) {
                         Column(
@@ -67,113 +220,28 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Профиль",
+                                text = "Опасная зона",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.error
                             )
-                            Text(
-                                text = "Логин: ${state.currentLogin}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "Имя: ${state.currentDisplayName}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+
+                            Button(
+                                onClick = viewModel::showDeleteAccountDialog,
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Удалить аккаунт навсегда")
+                            }
                         }
-                    }
-
-                    // Настройки аккаунта
-                    Text(
-                        text = "Настройки аккаунта",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Button(
-                        onClick = viewModel::showDisplayNameDialog,
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Изменить отображаемое имя")
-                    }
-
-                    Button(
-                        onClick = viewModel::showPasswordDialog,
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Сменить пароль")
-                    }
-
-                    HorizontalDivider()
-
-                    // Управление сессиями
-                    Text(
-                        text = "Управление сессиями",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    OutlinedButton(
-                        onClick = { viewModel.logout(onLoggedOut) },
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.ExitToApp,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Выйти с этого устройства")
-                    }
-
-                    OutlinedButton(
-                        onClick = viewModel::logoutAllDevices,
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.secondary
-                        )
-                    ) {
-                        Text("Выйти со всех устройств")
-                    }
-
-                    HorizontalDivider()
-
-                    Text(
-                        text = "Опасная зона",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-
-                    Button(
-                        onClick = viewModel::showDeleteAccountDialog,
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Удалить аккаунт навсегда")
                     }
 
                     state.error?.let {
@@ -310,7 +378,7 @@ fun ChangeDisplayNameDialog(
                     label = { Text("Новое имя") },
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("1–20 символов") }
+                    supportingText = { Text("1-20 символов") }
                 )
 
                 error?.let {
@@ -379,7 +447,7 @@ fun ChangePasswordDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("8–63 символа") }
+                    supportingText = { Text("8-63 символа") }
                 )
 
                 OutlinedTextField(
@@ -389,7 +457,7 @@ fun ChangePasswordDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("8–63 символа") }
+                    supportingText = { Text("8-63 символа") }
                 )
 
                 OutlinedTextField(
@@ -451,7 +519,7 @@ fun DeleteAccountDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "⚠️ Это действие необратимо!",
+                    text = "Это действие необратимо!",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -462,7 +530,7 @@ fun DeleteAccountDialog(
                 )
 
                 Text(
-                    text = "• Профиль и настройки\n• Все сообщения\n• История чатов",
+                    text = "Профиль и настройки\nВсе сообщения\nИстория чатов",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -476,7 +544,7 @@ fun DeleteAccountDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("8–63 символа") }
+                    supportingText = { Text("8-63 символа") }
                 )
 
                 error?.let {

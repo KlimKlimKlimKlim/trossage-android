@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.websocket.WebSocketManager
 import com.klim.trossage_android.domain.model.Message
+import com.klim.trossage_android.domain.model.MessageStatus
 import com.klim.trossage_android.domain.repository.MessageRepository
 import com.klim.trossage_android.domain.repository.TypingOperation
 import kotlinx.coroutines.Job
@@ -16,6 +17,8 @@ import kotlinx.coroutines.launch
 import com.google.gson.JsonParser
 import com.google.gson.Gson
 import android.util.Log
+import com.klim.trossage_android.data.util.DateUtils
+import kotlin.random.Random
 
 class ChatDetailViewModel(
     private val chatId: Int,
@@ -112,19 +115,44 @@ class ChatDetailViewModel(
             val jsonObject = JsonParser.parseString(message).asJsonObject
             val data = jsonObject.getAsJsonObject("data")
             val msgChatId = data?.get("chat_id")?.asInt ?: return
+            val senderId = data?.get("sender_id")?.asInt ?: return
+            val messageText = data?.get("text")?.asString ?: return
+            val messageId = data?.get("id")?.asInt ?: return
+            val createdAt = data?.get("created_at")?.asString ?: return
 
             Log.d("ChatVM", "New message for chat $msgChatId, current chat $chatId")
 
             if (msgChatId != chatId) return
 
-            Log.d("ChatVM", "Refreshing messages after new message")
-            isLoadingMore = false
-            refreshMessages()
+            val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
+            val isMine = senderId == currentUserId
 
-            _uiState.value = _uiState.value.copy(
-                companionTypingText = "",
-                companionIsTyping = false
+            val senderName = if (isMine) {
+                authPrefs.getCurrentUser()?.displayName ?: ""
+            } else {
+                companionName
+            }
+
+            val newMessage = Message(
+                messageId = messageId,
+                chatId = msgChatId,
+                senderId = senderId,
+                senderDisplayName = senderName,
+                text = messageText,
+                timestamp = DateUtils.parseIsoToMillis(createdAt),
+                isMine = isMine,
+                status = MessageStatus.SENT
             )
+
+            val existingMessages = _uiState.value.messages
+            if (existingMessages.none { it.messageId == messageId }) {
+                _uiState.value = _uiState.value.copy(
+                    messages = existingMessages + newMessage,
+                    companionTypingText = "",
+                    companionIsTyping = false
+                )
+                Log.d("ChatVM", "Added new message, total now: ${_uiState.value.messages.size}")
+            }
         } catch (e: Exception) {
             Log.e("ChatVM", "Parse new_message error: $message", e)
         }
@@ -135,31 +163,42 @@ class ChatDetailViewModel(
         for (op in operations) {
             val opObj = op.asJsonObject
             val type = opObj.get("type")?.asString ?: continue
-            when (type) {
-                "insert" -> {
-                    val position = opObj.get("position")?.asInt ?: 0
-                    val text = opObj.get("text")?.asString ?: ""
-                    currentText = currentText.substring(0, position) + text + currentText.substring(position)
+            try {
+                when (type) {
+                    "insert" -> {
+                        val position = opObj.get("position")?.asInt ?: 0
+                        val text = opObj.get("text")?.asString ?: ""
+                        if (position <= currentText.length) {
+                            currentText = currentText.substring(0, position) + text + currentText.substring(position)
+                        }
+                    }
+                    "delete" -> {
+                        val position = opObj.get("position")?.asInt ?: 0
+                        val length = opObj.get("length")?.asInt ?: 0
+                        if (position + length <= currentText.length) {
+                            currentText = currentText.substring(0, position) + currentText.substring(position + length)
+                        }
+                    }
+                    "replace" -> {
+                        val position = opObj.get("position")?.asInt ?: 0
+                        val length = opObj.get("length")?.asInt ?: 0
+                        val text = opObj.get("text")?.asString ?: ""
+                        if (position + length <= currentText.length) {
+                            currentText = currentText.substring(0, position) + text + currentText.substring(position + length)
+                        }
+                    }
+                    "clear" -> {
+                        currentText = ""
+                    }
                 }
-                "delete" -> {
-                    val position = opObj.get("position")?.asInt ?: 0
-                    val length = opObj.get("length")?.asInt ?: 0
-                    currentText = currentText.substring(0, position) + currentText.substring(position + length)
-                }
-                "replace" -> {
-                    val position = opObj.get("position")?.asInt ?: 0
-                    val length = opObj.get("length")?.asInt ?: 0
-                    val text = opObj.get("text")?.asString ?: ""
-                    currentText = currentText.substring(0, position) + text + currentText.substring(position + length)
-                }
-                "clear" -> {
-                    currentText = ""
-                }
+            } catch (e: Exception) {
+                Log.e("ChatVM", "Error applying typing operation: $type", e)
             }
         }
         Log.d("ChatVM", "Applied operations, new text: '$currentText'")
         handleTypingEvent(currentText)
     }
+
 
     private fun handleTypingEvent(text: String) {
         if (text.isEmpty()) {
@@ -183,7 +222,7 @@ class ChatDetailViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
         viewModelScope.launch {
-            messageRepository.loadMessages(chatId, currentOffset, pageSize)
+            messageRepository.loadMessages(chatId, currentOffset, pageSize, companionName)
                 .onSuccess { newMessages ->
                     val currentMessages = _uiState.value.messages
                     _uiState.value = _uiState.value.copy(
@@ -300,30 +339,65 @@ class ChatDetailViewModel(
         val text = _uiState.value.messageText.trim()
         if (text.isEmpty()) return
 
-        _uiState.value = _uiState.value.copy(isSending = true, error = null)
+        val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
+        val currentUserName = authPrefs.getCurrentUser()?.displayName ?: ""
+
+        val tempMessage = Message(
+            messageId = Random.nextInt(Int.MIN_VALUE, -1),
+            chatId = chatId,
+            senderId = currentUserId,
+            senderDisplayName = currentUserName,
+            text = text,
+            timestamp = System.currentTimeMillis(),
+            isMine = true,
+            status = MessageStatus.SENDING
+        )
+
+        val updatedMessages = _uiState.value.messages + tempMessage
+        _uiState.value = _uiState.value.copy(
+            messages = updatedMessages,
+            messageText = "",
+            isSending = true,
+            error = null
+        )
+        previousTypingText = ""
+        pendingOperations.clear()
 
         viewModelScope.launch {
             messageRepository.sendMessage(chatId, text)
                 .onSuccess { message ->
-                    val updatedMessages = _uiState.value.messages + message
-                    _uiState.value = _uiState.value.copy(
-                        messages = updatedMessages,
-                        messageText = "",
-                        isSending = false,
-                        companionTypingText = "",
-                        companionIsTyping = false
-                    )
-                    previousTypingText = ""
-                    pendingOperations.clear()
+                    val messagesWithoutTemp = _uiState.value.messages.filter { it.messageId != tempMessage.messageId }
+                    if (messagesWithoutTemp.none { it.messageId == message.messageId }) {
+                        _uiState.value = _uiState.value.copy(
+                            messages = messagesWithoutTemp + message,
+                            isSending = false,
+                            companionTypingText = "",
+                            companionIsTyping = false
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            messages = messagesWithoutTemp,
+                            isSending = false,
+                            companionTypingText = "",
+                            companionIsTyping = false
+                        )
+                    }
                 }
                 .onFailure { error ->
+                    val messagesWithFailed = _uiState.value.messages.map {
+                        if (it.messageId == tempMessage.messageId) {
+                            it.copy(status = MessageStatus.FAILED)
+                        } else it
+                    }
                     _uiState.value = _uiState.value.copy(
+                        messages = messagesWithFailed,
                         isSending = false,
                         error = error.message ?: "Ошибка отправки сообщения"
                     )
                 }
         }
     }
+
 
     override fun onCleared() {
         super.onCleared()
