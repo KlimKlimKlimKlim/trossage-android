@@ -85,7 +85,8 @@ fun NavGraph(
                 },
                 onSettingsClick = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                navController = navController
             )
         }
 

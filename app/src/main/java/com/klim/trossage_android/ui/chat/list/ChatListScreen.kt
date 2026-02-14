@@ -18,8 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.model.User
+import com.klim.trossage_android.ui.navigation.Screen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
@@ -27,7 +29,8 @@ import kotlinx.coroutines.launch
 fun ChatListScreen(
     viewModel: ChatListViewModel,
     onChatClick: (Chat) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    navController: NavHostController
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
@@ -196,7 +199,10 @@ fun ChatListScreen(
                                 UserSearchItem(
                                     user = user,
                                     onClick = {
-                                        viewModel.createChat(user.userId.toInt()) { chatId ->
+                                        viewModel.createChat(user.userId.toInt()) { chatId, companionName ->
+                                            navController.navigate(
+                                                Screen.ChatDetail.createRoute(chatId, companionName)
+                                            )
                                         }
                                         showSearchDialog = false
                                         searchQuery = ""

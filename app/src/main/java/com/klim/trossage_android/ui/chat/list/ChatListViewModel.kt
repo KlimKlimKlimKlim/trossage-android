@@ -130,10 +130,13 @@ class ChatListViewModel(
         }
     }
 
-    fun createChat(companionUserId: Int, onSuccess: (Int) -> Unit) {
+    fun createChat(companionUserId: Int, onSuccess: (Int, String) -> Unit) {
         viewModelScope.launch {
             chatRepository.createChat(companionUserId)
-                .onSuccess { chat -> onSuccess(chat.chatId) }
+                .onSuccess { chat ->
+                    onSuccess(chat.chatId, chat.companionDisplayName)
+                    refresh()
+                }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         error = error.message ?: "Ошибка создания чата"
