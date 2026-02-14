@@ -1,65 +1,90 @@
 package com.klim.trossage_android.data.repository
 
+import android.util.Log
 import com.klim.trossage_android.data.local.room.dao.ChatDao
 import com.klim.trossage_android.data.mapper.ChatMapper
 import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.dto.CreateChatRequest
-import com.klim.trossage_android.data.remote.network.ApiErrorHandler
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 class ChatRepositoryImpl(
-    private val api: ChatApiService,
+    private val apiService: ChatApiService,
     private val chatDao: ChatDao
 ) : ChatRepository {
 
-    private val _chatsFlow = MutableStateFlow<List<Chat>>(emptyList())
-
-    override fun getChatsFlow(): Flow<List<Chat>> = _chatsFlow
+    override fun getChatsFlow(): Flow<List<Chat>> {
+        return chatDao.getAllChats().map { entities ->
+            entities.map { ChatMapper.fromChatEntity(it) }
+        }
+    }
 
     override suspend fun loadChats(offset: Int, limit: Int): Result<List<Chat>> {
         return try {
-            if (offset == 0) {
-                val cached = chatDao.getAllChats().map { ChatMapper.fromChatEntity(it) }
-                if (cached.isNotEmpty()) {
-                    _chatsFlow.value = cached
+            val response = apiService.getChats(limit, offset)
+
+            if (response.isSuccess && response.data != null) {
+                val chats = response.data.chats.map { ChatMapper.toChat(it) }
+
+                if (offset == 0) {
+                    chatDao.deleteAll()
                 }
-            }
-
-            val response = api.getChats(limit, offset)
-            if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Ошибка загрузки чатов"))
-            }
-
-            val chats = response.data.chats.map { ChatMapper.toChat(it) }
-
-            if (offset == 0) {
-                chatDao.clearAll()
                 chatDao.insertAll(chats.map { ChatMapper.toChatEntity(it) })
-                chatDao.deleteOldChats()
-                _chatsFlow.value = chats
-            } else {
-                _chatsFlow.value = _chatsFlow.value + chats
-            }
 
-            Result.success(chats)
+                Result.success(chats)
+            } else {
+                Result.failure(Exception(response.error ?: "Неизвестная ошибка"))
+            }
         } catch (e: Exception) {
-            Result.failure(Exception(ApiErrorHandler.handleError(e)))
+            Log.e("ChatRepo", "loadChats error", e)
+            Result.failure(e)
         }
     }
 
     override suspend fun createChat(companionUserId: Int): Result<Chat> {
         return try {
-            val response = api.createChat(CreateChatRequest(companionUserId))
-            if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Ошибка создания чата"))
+            Log.d("ChatRepo", "Creating chat with user $companionUserId")
+            val response = apiService.createChat(CreateChatRequest(companionUserId))
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.isSuccess == true && body.data != null) {
+                    Log.d("ChatRepo", "Chat created successfully")
+                    val chat = ChatMapper.toChat(body.data)
+                    Result.success(chat)
+                } else {
+                    Log.e("ChatRepo", "Create failed: ${body?.error}")
+                    Result.failure(Exception(body?.error ?: "Ошибка создания чата"))
+                }
+            } else if (response.code() == 409) {
+                Log.d("ChatRepo", "Chat exists (409), loading chats to find it")
+
+                val chatsResponse = apiService.getChats(100, 0)
+                if (chatsResponse.isSuccess && chatsResponse.data != null) {
+                    val existingChat = chatsResponse.data.chats
+                        .find { it.otherUser.id == companionUserId }
+
+                    if (existingChat != null) {
+                        Log.d("ChatRepo", "Found existing chat: ${existingChat.id}")
+                        val chat = ChatMapper.toChat(existingChat)
+                        Result.success(chat)
+                    } else {
+                        Log.e("ChatRepo", "Chat exists but not found in list")
+                        Result.failure(Exception("Чат не найден"))
+                    }
+                } else {
+                    Log.e("ChatRepo", "Failed to load chats")
+                    Result.failure(Exception("Не удалось загрузить чаты"))
+                }
+            } else {
+                Log.e("ChatRepo", "HTTP ${response.code()}")
+                Result.failure(Exception("Ошибка ${response.code()}"))
             }
-            val chat = ChatMapper.toChat(response.data)
-            Result.success(chat)
         } catch (e: Exception) {
-            Result.failure(Exception(ApiErrorHandler.handleError(e)))
+            Log.e("ChatRepo", "createChat exception", e)
+            Result.failure(e)
         }
     }
 }

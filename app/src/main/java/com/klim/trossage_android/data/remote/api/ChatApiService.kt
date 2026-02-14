@@ -50,7 +50,7 @@ interface ChatApiService {
     ): ApiResponse<ChatsListResponse>
 
     @POST("chats")
-    suspend fun createChat(@Body request: CreateChatRequest): ApiResponse<ChatResponse>
+    suspend fun createChat(@Body request: CreateChatRequest): Response<ApiResponse<ChatResponse>>
 
     @GET("chats/{chat_id}/messages")
     suspend fun getMessages(

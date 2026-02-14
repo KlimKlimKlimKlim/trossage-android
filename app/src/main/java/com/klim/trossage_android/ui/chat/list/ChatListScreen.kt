@@ -199,14 +199,15 @@ fun ChatListScreen(
                                 UserSearchItem(
                                     user = user,
                                     onClick = {
-                                        viewModel.createChat(user.userId.toInt()) { chatId, companionName ->
+                                        showSearchDialog = false
+                                        searchQuery = ""
+                                        viewModel.searchUsers("")
+
+                                        viewModel.getOrCreateChat(user.userId.toInt()) { chatId, companionName ->
                                             navController.navigate(
                                                 Screen.ChatDetail.createRoute(chatId, companionName)
                                             )
                                         }
-                                        showSearchDialog = false
-                                        searchQuery = ""
-                                        viewModel.searchUsers("")
                                     }
                                 )
 

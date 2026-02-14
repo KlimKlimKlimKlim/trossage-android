@@ -1,5 +1,6 @@
 package com.klim.trossage_android.ui.chat.list
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.klim.trossage_android.domain.model.Chat
@@ -130,16 +131,20 @@ class ChatListViewModel(
         }
     }
 
-    fun createChat(companionUserId: Int, onSuccess: (Int, String) -> Unit) {
+    fun getOrCreateChat(companionUserId: Int, onSuccess: (Int, String) -> Unit) {
+        Log.d("ChatListVM", "getOrCreateChat called for user: $companionUserId")
         viewModelScope.launch {
+            Log.d("ChatListVM", "Starting API call...")
             chatRepository.createChat(companionUserId)
                 .onSuccess { chat ->
+                    Log.d("ChatListVM", "SUCCESS: Got chat id=${chat.chatId}, name=${chat.companionDisplayName}")
                     onSuccess(chat.chatId, chat.companionDisplayName)
-                    refresh()
+                    Log.d("ChatListVM", "onSuccess callback completed")
                 }
                 .onFailure { error ->
+                    Log.e("ChatListVM", "FAILURE: ${error.message}")
                     _uiState.value = _uiState.value.copy(
-                        error = error.message ?: "Ошибка создания чата"
+                        error = error.message ?: "Ошибка открытия чата"
                     )
                 }
         }
