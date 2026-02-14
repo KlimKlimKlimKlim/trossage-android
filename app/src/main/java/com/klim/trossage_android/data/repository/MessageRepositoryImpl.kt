@@ -9,6 +9,7 @@ import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.dto.SendMessageRequest
 import com.klim.trossage_android.data.remote.dto.TypingOperationDto
 import com.klim.trossage_android.data.remote.dto.TypingUpdateRequest
+import com.klim.trossage_android.data.remote.network.ApiErrorHandler
 import com.klim.trossage_android.domain.model.Message
 import com.klim.trossage_android.domain.model.MessageStatus
 import com.klim.trossage_android.domain.repository.MessageRepository
@@ -44,7 +45,7 @@ class MessageRepositoryImpl(
 
             val response = api.getMessages(chatId, limit, offset)
             if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Unknown error"))
+                return Result.failure(Exception(response.error ?: "Ошибка загрузки сообщений"))
             }
 
             val currentUserId = authPrefs.getCurrentUser()?.userId?.toIntOrNull() ?: 0
@@ -68,7 +69,7 @@ class MessageRepositoryImpl(
 
             Result.success(messages)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 
@@ -90,7 +91,7 @@ class MessageRepositoryImpl(
         return try {
             val response = api.sendMessage(chatId, SendMessageRequest(text))
             if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Unknown error"))
+                return Result.failure(Exception(response.error ?: "Ошибка отправки сообщения"))
             }
 
             val message = ChatMapper.toMessage(response.data, currentUserId, currentUserName)
@@ -99,7 +100,7 @@ class MessageRepositoryImpl(
             Result.success(message)
         } catch (e: Exception) {
             val failedMessage = tempMessage.copy(status = MessageStatus.FAILED)
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 

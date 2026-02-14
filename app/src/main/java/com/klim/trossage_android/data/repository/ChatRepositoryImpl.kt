@@ -4,6 +4,7 @@ import com.klim.trossage_android.data.local.room.dao.ChatDao
 import com.klim.trossage_android.data.mapper.ChatMapper
 import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.dto.CreateChatRequest
+import com.klim.trossage_android.data.remote.network.ApiErrorHandler
 import com.klim.trossage_android.domain.model.Chat
 import com.klim.trossage_android.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
@@ -29,7 +30,7 @@ class ChatRepositoryImpl(
 
             val response = api.getChats(limit, offset)
             if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Unknown error"))
+                return Result.failure(Exception(response.error ?: "Ошибка загрузки чатов"))
             }
 
             val chats = response.data.chats.map { ChatMapper.toChat(it) }
@@ -45,7 +46,7 @@ class ChatRepositoryImpl(
 
             Result.success(chats)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 
@@ -53,12 +54,12 @@ class ChatRepositoryImpl(
         return try {
             val response = api.createChat(CreateChatRequest(companionUserId))
             if (!response.isSuccess || response.data == null) {
-                return Result.failure(Exception(response.error ?: "Unknown error"))
+                return Result.failure(Exception(response.error ?: "Ошибка создания чата"))
             }
             val chat = ChatMapper.toChat(response.data)
             Result.success(chat)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 }

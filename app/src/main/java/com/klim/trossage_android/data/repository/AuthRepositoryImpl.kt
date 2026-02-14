@@ -4,6 +4,7 @@ import com.klim.trossage_android.data.local.preferences.AuthPreferences
 import com.klim.trossage_android.data.remote.api.ChatApiService
 import com.klim.trossage_android.data.remote.dto.LoginUserRequest
 import com.klim.trossage_android.data.remote.dto.RegisterUserRequest
+import com.klim.trossage_android.data.remote.network.ApiErrorHandler
 import com.klim.trossage_android.domain.model.User
 import com.klim.trossage_android.domain.repository.AuthRepository
 
@@ -16,7 +17,7 @@ class AuthRepositoryImpl(
         return try {
             val resp = api.login(LoginUserRequest(login = username, password = password))
             if (!resp.isSuccess || resp.data == null) {
-                return Result.failure(Exception(resp.error))
+                return Result.failure(Exception(resp.error ?: "Ошибка входа"))
             }
 
             val data = resp.data
@@ -25,7 +26,7 @@ class AuthRepositoryImpl(
 
             Result.success(User(data.user.id.toString(), data.user.login, data.user.displayName))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 
@@ -33,7 +34,7 @@ class AuthRepositoryImpl(
         return try {
             val resp = api.register(RegisterUserRequest(login = username, password = password, displayName = displayName))
             if (!resp.isSuccess || resp.data == null) {
-                return Result.failure(Exception(resp.error))
+                return Result.failure(Exception(resp.error ?: "Ошибка регистрации"))
             }
 
             val data = resp.data
@@ -42,7 +43,7 @@ class AuthRepositoryImpl(
 
             Result.success(User(data.user.id.toString(), data.user.login, data.user.displayName))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorHandler.handleError(e)))
         }
     }
 
