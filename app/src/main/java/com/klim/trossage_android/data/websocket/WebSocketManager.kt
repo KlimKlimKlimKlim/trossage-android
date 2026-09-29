@@ -14,7 +14,7 @@ object WebSocketManager {
     private const val BASE_WS_URL = "wss://trossage.teew.ru/api/ws"
 
     fun websocketFlow(authToken: String) = callbackFlow<String?> {
-        Log.d("WebSocketManager", "Connecting to WS: $BASE_WS_URL token=${authToken.take(20)}...")
+        Log.d("WebSocketManager", "Connecting to WebSocket")
 
         val client = client ?: OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -27,8 +27,6 @@ object WebSocketManager {
             .url("$BASE_WS_URL?token=$authToken")
             .build()
 
-        Log.d("WebSocketManager", "WS Request: ${request.url}")
-
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 val status = response.code
@@ -38,7 +36,7 @@ object WebSocketManager {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d("WebSocketManager", "WS message: $text")
+                Log.d("WebSocketManager", "WS message received")
                 trySend(text)
             }
 
@@ -49,13 +47,13 @@ object WebSocketManager {
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.w("WebSocketManager", "WS CLOSING code=$code reason='$reason'")
+                Log.w("WebSocketManager", "WS CLOSING code=$code")
                 WebSocketManager.webSocket = null
                 trySend(null)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.w("WebSocketManager", "WS CLOSED code=$code reason='$reason'")
+                Log.w("WebSocketManager", "WS CLOSED code=$code")
                 WebSocketManager.webSocket = null
             }
         }
@@ -74,7 +72,7 @@ object WebSocketManager {
             "chat_id" to chatId,
             "operations" to operations
         ))
-        Log.d("WebSocketManager", "WS SEND TYPING chatId=$chatId: $json")
+        Log.d("WebSocketManager", "Sending typing event for chatId=$chatId")
         webSocket?.send(json)
     }
 
